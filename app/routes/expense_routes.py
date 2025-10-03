@@ -6,6 +6,7 @@ from datetime import datetime
 
 expense_bp = Blueprint("expenses", __name__)
 
+# ------------------- GET ALL EXPENSES -------------------
 @expense_bp.route("/", methods=["GET"])
 @jwt_required()
 def get_expenses():
@@ -19,6 +20,21 @@ def get_expenses():
         "category": e.category
     } for e in expenses])
 
+# ------------------- GET SINGLE EXPENSE -------------------
+@expense_bp.route("/<int:expense_id>", methods=["GET"])
+@jwt_required()
+def get_expense(expense_id):
+    user_id = get_jwt_identity()
+    expense = Expense.query.filter_by(id=expense_id, user_id=user_id).first_or_404()
+    return jsonify({
+        "id": expense.id,
+        "description": expense.description,
+        "amount": expense.amount,
+        "date": expense.date.strftime("%Y-%m-%d"),
+        "category": expense.category
+    })
+
+# ------------------- ADD EXPENSE -------------------
 @expense_bp.route("/", methods=["POST"])
 @jwt_required()
 def add_expense():
@@ -34,3 +50,31 @@ def add_expense():
     db.session.add(expense)
     db.session.commit()
     return jsonify({"message": "Expense added successfully"}), 201
+
+# ------------------- UPDATE EXPENSE -------------------
+@expense_bp.route("/<int:expense_id>", methods=["PUT"])
+@jwt_required()
+def update_expense(expense_id):
+    user_id = get_jwt_identity()
+    data = request.json
+    expense = Expense.query.filter_by(id=expense_id, user_id=user_id).first_or_404()
+    
+    expense.description = data.get("description", expense.description)
+    expense.amount = data.get("amount", expense.amount)
+    if "date" in data:
+        expense.date = datetime.strptime(data["date"], "%Y-%m-%d")
+    expense.category = data.get("category", expense.category)
+    
+    db.session.commit()
+    return jsonify({"message": "Expense updated successfully"})
+
+# ------------------- DELETE EXPENSE -------------------
+@expense_bp.route("/<int:expense_id>", methods=["DELETE"])
+@jwt_required()
+def delete_expense(expense_id):
+    user_id = get_jwt_identity()
+    expense = Expense.query.filter_by(id=expense_id, user_id=user_id).first_or_404()
+    
+    db.session.delete(expense)
+    db.session.commit()
+    return jsonify({"message": "Expense deleted successfully"})
